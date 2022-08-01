@@ -1,0 +1,109 @@
+---
+title: "MKT 552 Market Basket Analysis Assignment"
+author: "Aridania Gerardo"
+date: "2022-07-30"
+output: html_document
+---
+
+## Installing Packages
+
+```{r}
+#packages for analysis
+library(dplyr)
+library(readr)
+library(arules)
+library(arulesViz)
+library(scales)
+```
+
+## Uploading data
+
+```{r}
+Order<-read.csv("https://raw.githubusercontent.com/aridaniaG/InstacartMKTBasket/main/Basket_Raw.csv", nrows=100000)
+Products<-read.csv("https://raw.githubusercontent.com/aridaniaG/InstacartMKTBasket/main/products.csv")
+DepartmentName<-read.csv("https://raw.githubusercontent.com/aridaniaG/InstacartMKTBasket/main/departments.csv")
+```
+
+## Preprocessing data
+
+```{r}
+#extracting columns for df
+OrderId<-Order[,1:2]
+ProductDepartmentName<-Products[,c(1:2,4)]
+```
+
+```{r}
+#transforming df to transactions for analysis
+ProductDepartmentName<-merge(ProductDepartmentName, DepartmentName, by="department_id")
+TransData<-merge(OrderId, ProductDepartmentName, by="product_id")
+TransData<-arrange(TransData, OrderId)
+```
+
+```{r}
+#data for analysis
+ProductAnaly<-TransData[,c(2,4)]
+DepartmentAnaly<-TransData[,c(2,5)]
+```
+
+```{r}
+#data for both department and specific products
+TransPData <- split(ProductAnaly$product_name, ProductAnaly$order_id)
+TransDData <- split(DepartmentAnaly$department, DepartmentAnaly$order_id)
+```
+
+```{r}
+ProTran = as(TransPData,"transactions")
+DepTran = as(TransDData,"transactions")
+```
+
+## EDA
+
+### Specific Products
+
+The five most frequent products bought on instacart are Bananas, Bag of Organic Bananas, Organic Strawberries, Organic Baby Spinach, and Large Lemon's.
+
+```{r}
+#frequent items for specific prodcuts
+frequentItems <- eclat(ProTran, parameter = list(supp = 0.07, maxlen = 15))
+inspect(frequentItems)
+#plot frequency
+itemFrequencyPlot(ProTran, topN=5, type="absolute", main="Item Frequency per Product")
+```
+
+Organic Hass Avocado, Organic Raspberries, and Organic Unsweetened Almond Milk are most likely to be purchased with a Bag of Organic Bananas with a confidence level of 0.83.
+
+```{r}
+#rules for Products
+rules <- apriori(ProTran, parameter = list(supp = 0.001, conf = 0.5, maxlen=15))
+#confidence
+rules_conf <- sort(rules, by="confidence", decreasing=TRUE)
+inspect(head(rules_conf))
+```
+
+### Departments
+
+The top five most popular categories that are bought from are produce, dairy eggs, beverages, snacks, and frozen items.
+
+```{r}
+#frequent items in departments
+frequentItems <- eclat(DepTran, parameter = list(supp = 0.07, maxlen = 15))
+inspect(frequentItems)
+#plot frequency
+itemFrequencyPlot(DepTran, topN=5, type="absolute", main="Item Frequency per Categories")
+```
+
+Purchase of dairy eggs is associated with bulk, personal care, and snacks. Purchase of produce is associated with bulk, dairy eggs, personal care.
+
+```{r}
+#rules for departments
+rules <- apriori(DepTran, parameter = list(supp = 0.001, conf = 0.5, maxlen=15))
+#confidence
+rules_conf <- sort(rules, by="confidence", decreasing=TRUE)
+inspect(head(rules_conf))
+```
+
+## Analysis Summary
+
+Items that are likely to be bought together are from the produce department such as dairy eggs and produce with snacks and personal care.
+
+If consumers buy two products together, the leader of the basket is most likely to be an item from the produce department sand the add-on is most likely to be itmes that would accompany such as beverages and snacks.
